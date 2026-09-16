@@ -12,22 +12,24 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/viernoi86/arsenal/ref
 * ⚡ **Rapid Fire** — augmente considérablement la cadence de tir.
 * 🎯 **Hitbox Expander** — agrandit les hitboxes des joueurs ennemis pour faciliter les tirs.
 * 🌀 **Teleport to Enemy** — permet de se téléporter directement sur un joueur ennemi.
-* ⌨️ **X Key Teleport** — appuie sur **X** pour activer la téléportation vers un ennemi.
+* ⌨️ **X Key Teleport** — appuie sur **X** pour se téléporter vers un ennemi.
+* 🖥️ **UI Toggle** — appuie sur **Right Shift** pour afficher ou masquer l'interface.
 
 ## 🎮 Controls
 
-| Touche | Fonction                            |
-| ------ | ----------------------------------- |
-| **X**  | Téléportation vers un joueur ennemi |
+| Touche | Fonction |
+| ------ | -------- |
+| **X** | Téléportation vers un joueur ennemi |
+| **Right Shift** | Afficher / masquer l'UI |
 
 ## 🚀 Installation
 
 1. Ouvre ton exécuteur Roblox.
-2. Copie le script.
+2. Copie le **Loadstring** ci-dessus.
 3. Colle-le dans l'exécuteur.
 4. Lance **Arsenal**.
 5. Exécute le script.
-6. Profite des fonctionnalités disponibles.
+6. Utilise les touches indiquées dans la section **Controls**.
 
 ## ⚙️ Features
 
@@ -37,11 +39,20 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/viernoi86/arsenal/ref
 [✓] Hitbox Expander
 [✓] Enemy Teleport
 [✓] X Key Teleport
+[✓] Right Shift UI Toggle
+```
+
+## ⌨️ Keybinds
+
+```text
+X            → Teleport to Enemy
+Right Shift  → Show / Hide UI
 ```
 
 ## 📌 Notes
 
 Le script est conçu pour être simple et rapide à utiliser.
+
 Les fonctionnalités peuvent dépendre des mises à jour d'**Arsenal** et de Roblox.
 
 ---
