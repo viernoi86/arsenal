@@ -1,6 +1,10 @@
 # 🔫 Arsenal Script
 
-Un script simple pour **Arsenal** avec plusieurs fonctionnalités utiles pour le gameplay.
+## Loadstring
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/viernoi86/arsenal/refs/heads/main/arsenal.lua"))()
+```
 
 ## ✨ Fonctionnalités
 
