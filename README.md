@@ -56,6 +56,7 @@ Le script est conçu pour être simple et rapide à utiliser.
 Les fonctionnalités peuvent dépendre des mises à jour d'**Arsenal** et de Roblox.
 
 ---
+developer avec l'executer potassium
 
 ### ⭐ Support
 
