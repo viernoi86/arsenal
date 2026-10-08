@@ -735,6 +735,467 @@ MixedSlider:OnChanged(function(Value)
     applyHitboxes()
 end)
 
+
+-- ============================================================
+-- CONFIG SYSTEM
+-- ============================================================
+
+local ConfigFolder = "ArsenalFinal"
+local ConfigFile = ConfigFolder .. "/configs.json"
+local HttpService = game:GetService("HttpService")
+
+local CanUseFiles =
+    typeof(writefile) == "function"
+    and typeof(readfile) == "function"
+    and typeof(isfile) == "function"
+    and typeof(makefolder) == "function"
+
+local configs = {}
+local selectedConfig = nil
+local autoLoadEnabled = false
+local autoConfigName = nil
+
+local function ensureConfigFolder()
+    if not CanUseFiles then return false end
+
+    if typeof(isfolder) == "function" then
+        if not isfolder(ConfigFolder) then
+            pcall(function() makefolder(ConfigFolder) end)
+        end
+    else
+        pcall(function() makefolder(ConfigFolder) end)
+    end
+
+    return true
+end
+
+local function readConfigFile()
+    if not CanUseFiles then return end
+    ensureConfigFolder()
+
+    if not isfile(ConfigFile) then
+        configs = {}
+        return
+    end
+
+    local ok, raw = pcall(readfile, ConfigFile)
+    if not ok or typeof(raw) ~= "string" then
+        configs = {}
+        return
+    end
+
+    local okDecode, data = pcall(function()
+        return HttpService:JSONDecode(raw)
+    end)
+
+    if okDecode and typeof(data) == "table" then
+        configs = data.configs or {}
+        autoLoadEnabled = data.autoLoad == true
+        autoConfigName = data.autoConfig
+    else
+        configs = {}
+    end
+end
+
+local function writeConfigFile()
+    if not CanUseFiles then
+        Fluent:Notify({
+            Title = "Config",
+            Content = "Ton environnement ne supporte pas les fichiers.",
+            Duration = 4
+        })
+        return false
+    end
+
+    ensureConfigFolder()
+
+    local payload = {
+        configs = configs,
+        autoLoad = autoLoadEnabled,
+        autoConfig = autoConfigName
+    }
+
+    local okEncode, raw = pcall(function()
+        return HttpService:JSONEncode(payload)
+    end)
+
+    if not okEncode then
+        return false
+    end
+
+    local okWrite = pcall(function()
+        writefile(ConfigFile, raw)
+    end)
+
+    return okWrite
+end
+
+local function getCurrentConfig()
+    return {
+        rapid = gunFlags.rapid == true,
+        infinite = gunFlags.infinite == true,
+        norecoil = gunFlags.norecoil == true,
+
+        hitboxes = hbFlags.enabled == true,
+        mode = hbFlags.mode or "Head",
+
+        headSize = hbFlags.headSize and hbFlags.headSize.X or 16,
+        bodySize = hbFlags.bodySize and hbFlags.bodySize.X or 10,
+        mixedChance = tonumber(hbFlags.mixedChance) or 50
+    }
+end
+
+local function applyConfig(cfg)
+    if typeof(cfg) ~= "table" then
+        return false
+    end
+
+    gunFlags.rapid = cfg.rapid == true
+    gunFlags.infinite = cfg.infinite == true
+    gunFlags.norecoil = cfg.norecoil == true
+
+    hbFlags.enabled = cfg.hitboxes == true
+
+    if cfg.mode == "Head"
+        or cfg.mode == "Torso"
+        or cfg.mode == "Mixed" then
+        hbFlags.mode = cfg.mode
+    else
+        hbFlags.mode = "Head"
+    end
+
+    local headSize = math.clamp(tonumber(cfg.headSize) or 16, 2, 24)
+    local bodySize = math.clamp(tonumber(cfg.bodySize) or 10, 5, 24)
+    local mixedChance = math.clamp(tonumber(cfg.mixedChance) or 50, 0, 100)
+
+    hbFlags.headSize = Vector3.new(headSize, headSize, headSize)
+    hbFlags.bodySize = Vector3.new(bodySize, bodySize, bodySize)
+    hbFlags.mixedChance = mixedChance
+
+    pcall(applyGuns)
+    pcall(applyHitboxes)
+
+    pcall(function() RapidToggle:SetValue(gunFlags.rapid) end)
+    pcall(function() InfToggle:SetValue(gunFlags.infinite) end)
+    pcall(function() RecoilToggle:SetValue(gunFlags.norecoil) end)
+    pcall(function() HBToggle:SetValue(hbFlags.enabled) end)
+    pcall(function() _ModeDropdown:SetValue(hbFlags.mode) end)
+    pcall(function() HeadSizeSlider:SetValue(headSize) end)
+    pcall(function() BodySizeSlider:SetValue(bodySize) end)
+    pcall(function() MixedSlider:SetValue(mixedChance) end)
+
+    return true
+end
+
+local function getConfigNames()
+    local names = {}
+
+    for name in pairs(configs) do
+        if typeof(name) == "string" then
+            table.insert(names, name)
+        end
+    end
+
+    table.sort(names)
+
+    if #names == 0 then
+        table.insert(names, "Aucune config")
+    end
+
+    return names
+end
+
+local function saveConfig(name)
+    name = tostring(name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+
+    if name == "" then
+        Fluent:Notify({
+            Title = "Config",
+            Content = "Entre un nom.",
+            Duration = 3
+        })
+        return false
+    end
+
+    configs[name] = getCurrentConfig()
+
+    if writeConfigFile() then
+        selectedConfig = name
+
+        Fluent:Notify({
+            Title = "Config sauvegardée",
+            Content = name,
+            Duration = 3
+        })
+
+        return true
+    end
+
+    return false
+end
+
+local function loadConfig(name)
+    if not name or name == "" or not configs[name] then
+        Fluent:Notify({
+            Title = "Config",
+            Content = "Config introuvable.",
+            Duration = 3
+        })
+        return false
+    end
+
+    if applyConfig(configs[name]) then
+        selectedConfig = name
+
+        Fluent:Notify({
+            Title = "Config chargée",
+            Content = name,
+            Duration = 3
+        })
+
+        return true
+    end
+
+    return false
+end
+
+local function deleteConfig(name)
+    if not name or not configs[name] then return false end
+
+    configs[name] = nil
+
+    if autoConfigName == name then
+        autoConfigName = nil
+        autoLoadEnabled = false
+    end
+
+    if selectedConfig == name then
+        selectedConfig = nil
+    end
+
+    writeConfigFile()
+
+    Fluent:Notify({
+        Title = "Config supprimée",
+        Content = name,
+        Duration = 3
+    })
+
+    return true
+end
+
+readConfigFile()
+
+-- ============================================================
+-- ONGLET CONFIGS
+-- ============================================================
+
+local ConfigTab = Window:AddTab({
+    Title = "Configs",
+    Icon = ""
+})
+
+ConfigTab:AddParagraph({
+    Title = "Configuration Manager",
+    Content = "Sauvegarde, charge et auto-charge tes réglages."
+})
+
+ConfigTab:AddSection("Sauvegarde")
+
+local ConfigNameInput = ConfigTab:AddInput("ConfigName", {
+    Title = "Nom de la config",
+    Description = "Exemple : Rage / Legit / HeadOnly",
+    Default = "",
+    Placeholder = "Nom...",
+    Numeric = false,
+    Finished = false
+})
+
+ConfigTab:AddButton({
+    Title = "Sauvegarder la config actuelle",
+    Callback = function()
+        saveConfig(ConfigNameInput.Value)
+    end
+})
+
+ConfigTab:AddSection("Chargement")
+
+local ConfigDropdown = ConfigTab:AddDropdown("ConfigList", {
+    Title = "Config",
+    Description = "Sélectionne une config.",
+    Values = getConfigNames(),
+    Multi = false,
+    Default = 1
+})
+
+ConfigDropdown:OnChanged(function(Value)
+    if Value ~= "Aucune config" then
+        selectedConfig = Value
+        pcall(function()
+            ConfigNameInput:SetValue(Value)
+        end)
+    end
+end)
+
+local function refreshConfigDropdown()
+    local values = getConfigNames()
+
+    pcall(function()
+        ConfigDropdown:SetValues(values)
+    end)
+
+    if selectedConfig and configs[selectedConfig] then
+        pcall(function()
+            ConfigDropdown:SetValue(selectedConfig)
+        end)
+    end
+end
+
+ConfigTab:AddButton({
+    Title = "Charger la config",
+    Callback = function()
+        loadConfig(selectedConfig)
+    end
+})
+
+ConfigTab:AddButton({
+    Title = "Actualiser la liste",
+    Callback = function()
+        readConfigFile()
+        refreshConfigDropdown()
+    end
+})
+
+ConfigTab:AddButton({
+    Title = "Supprimer la config",
+    Callback = function()
+        if selectedConfig then
+            deleteConfig(selectedConfig)
+            refreshConfigDropdown()
+            pcall(function() ConfigNameInput:SetValue("") end)
+        end
+    end
+})
+
+ConfigTab:AddSection("Auto-exécution")
+
+local AutoLoadToggle = ConfigTab:AddToggle("AutoLoad", {
+    Title = "Auto Load",
+    Description = "Charge automatiquement une config au lancement.",
+    Default = autoLoadEnabled
+})
+
+AutoLoadToggle:OnChanged(function()
+    autoLoadEnabled = AutoLoadToggle.Value == true
+
+    if autoLoadEnabled and selectedConfig and configs[selectedConfig] then
+        autoConfigName = selectedConfig
+    elseif not autoLoadEnabled then
+        autoConfigName = nil
+    end
+
+    writeConfigFile()
+end)
+
+local AutoConfigDropdown = ConfigTab:AddDropdown("AutoConfig", {
+    Title = "Config automatique",
+    Description = "Config chargée automatiquement.",
+    Values = getConfigNames(),
+    Multi = false,
+    Default = 1
+})
+
+AutoConfigDropdown:OnChanged(function(Value)
+    if Value ~= "Aucune config" and configs[Value] then
+        autoConfigName = Value
+        selectedConfig = Value
+
+        pcall(function()
+            ConfigNameInput:SetValue(Value)
+        end)
+
+        if not autoLoadEnabled then
+            autoLoadEnabled = true
+            pcall(function()
+                AutoLoadToggle:SetValue(true)
+            end)
+        end
+
+        writeConfigFile()
+    end
+end)
+
+ConfigTab:AddButton({
+    Title = "Définir la config sélectionnée comme automatique",
+    Callback = function()
+        if not selectedConfig or not configs[selectedConfig] then
+            Fluent:Notify({
+                Title = "Auto Load",
+                Content = "Sélectionne une config.",
+                Duration = 3
+            })
+            return
+        end
+
+        autoConfigName = selectedConfig
+        autoLoadEnabled = true
+
+        pcall(function()
+            AutoLoadToggle:SetValue(true)
+            AutoConfigDropdown:SetValue(selectedConfig)
+        end)
+
+        writeConfigFile()
+
+        Fluent:Notify({
+            Title = "Auto Load activé",
+            Content = selectedConfig .. " sera chargée au prochain lancement.",
+            Duration = 4
+        })
+    end
+})
+
+-- Rafraîchit les deux listes après création
+refreshConfigDropdown()
+
+pcall(function()
+    AutoConfigDropdown:SetValues(getConfigNames())
+
+    if autoConfigName and configs[autoConfigName] then
+        AutoConfigDropdown:SetValue(autoConfigName)
+        selectedConfig = autoConfigName
+        ConfigNameInput:SetValue(autoConfigName)
+    end
+end)
+
+-- ============================================================
+-- AUTO LOAD AU LANCEMENT
+-- ============================================================
+
+task.defer(function()
+    task.wait(1)
+
+    if autoLoadEnabled
+        and autoConfigName
+        and configs[autoConfigName] then
+
+        selectedConfig = autoConfigName
+
+        pcall(function()
+            ConfigDropdown:SetValue(autoConfigName)
+        end)
+
+        pcall(function()
+            AutoConfigDropdown:SetValue(autoConfigName)
+        end)
+
+        task.wait(0.3)
+        loadConfig(autoConfigName)
+    end
+end)
+
+print("[ArsenalFinal] Config system loaded")
+
 Window:SelectTab(1)
 Fluent:Notify({
     Title = "Arsenal loaded",
